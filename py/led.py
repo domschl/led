@@ -230,10 +230,10 @@ def run():
     frames = LFrames()
     if frames.root_frame is not None:
         frames.root_frame.split(Direction.VERTICAL)
-        if frames.root_frame.lc is not None:
-            frames.root_frame.lc.split(Direction.HORIZONTAL)
-        if frames.root_frame.rc is not None:
-            frames.root_frame.rc.split(Direction.VERTICAL)
+        # if frames.root_frame.lc is not None:
+        #     frames.root_frame.lc.split(Direction.HORIZONTAL)
+        # if frames.root_frame.rc is not None:
+        #     frames.root_frame.rc.split(Direction.VERTICAL)
     frames.geometry(0, 0, 800, 600)
     renderer = sdl2.ext.Renderer(window, flags=sdl2.SDL_RENDERER_ACCELERATED)
 
