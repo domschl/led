@@ -48,6 +48,19 @@ class LFrame:
         self.h: int = 0
         self.content: Content | None = content
 
+    def inherit(self, frame: LFrame):
+        self.active = frame.active
+        self.parent = frame.parent
+        self.lc = frame.lc
+        self.rc = frame.rc
+        self.ratio = frame.ratio
+        self.dir = frame.dir
+        self.x = frame.x
+        self.y = frame.y
+        self.w = frame.w
+        self.h = frame.h
+        self.content = frame.content
+
     def split(self, dir: Direction = Direction.HORIZONTAL) -> None:
         self.lc = LFrame(parent=self, content=self.content, active=self.active)
         self.rc = LFrame(parent=self)
@@ -67,18 +80,18 @@ class LFrame:
                 self.parent.ratio = 0
                 self.parent.dir = Direction.NONE                
             else:
-                parent = self.parent.parent
-                self.parent = self.parent.rc
-                self.parent.parent = parent
+                old_parent = self.parent.parent
+                self.parent.inherit(self.parent.rc)
+                self.parent.parent = old_parent
         elif self.parent.rc is self:
             self.parent.rc = None
             if self.parent.lc is None:
                 self.parent.ratio = 0
                 self.parent.dir = Direction.NONE
             else:
-                parent = self.parent.parent
-                self.parent = self.parent.lc
-                self.parent.parent = parent
+                old_parent = self.parent.parent
+                self.parent.inherit(self.parent.lc)
+                self.parent.parent = old_parent
         else:
             print("bad state close")
         if self.active is True:
@@ -110,79 +123,79 @@ class LFrames:
         else:
             self.theme = theme
 
-    def _geometry(self, x: int, y: int, w: int, h: int, frame: LFrame | None = None, level: int = 0):
-        if frame is None:
-            return
-        if frame.active is True:
-            b = "*"
-        else:
-            b = " "
-        print(f"frame_geometry: {" "*level}[{x},{y}]->{w}x{h} {b} ", end="")
-        if frame.rc is not None or frame.lc is not None:
-            print("->")
-            if frame.dir == Direction.VERTICAL:
-                nw: int = w
-                nh_l = int(h * frame.ratio)
-                nh_r = int(h * (1 - frame.ratio))
-                nx = x
-                ny_l = y
-                ny_r = y + int(h * frame.ratio)
-                self._geometry(nx, ny_l, nw, nh_l, frame.lc, level + 1)
-                self._geometry(nx, ny_r, nw, nh_r, frame.rc, level + 1)
-                frame.x = 0
-                frame.y = 0
-                frame.w = 0
-                frame.h = 0
-            elif frame.dir == Direction.HORIZONTAL:
-                nw_l = int(w * frame.ratio)
-                nw_r = int(w * (1 - frame.ratio))
-                nx_l = x
-                nx_r = x + int(w * frame.ratio)
-                ny = y
-                nh = h
-                self._geometry(nx_l, ny, nw_l, nh, frame.lc, level + 1)
-                self._geometry(nx_r, ny, nw_r, nh, frame.rc, level + 1)
-                frame.x = 0
-                frame.y = 0
-                frame.w = 0
-                frame.h = 0
-            else:
-                print("bad state")
-        else:
-            print("<<")
-            frame.x = x
-            frame.y = y
-            frame.w = w
-            frame.h = h
-
-    def _render(self, frame: LFrame | None, renderer: sdl2.ext.Renderer):
-        if frame is None:
-            return
-        if frame.rc is not None or frame.lc is not None:
-            if frame.dir == Direction.VERTICAL:
-                self._render(frame.lc, renderer)
-                self._render(frame.rc, renderer)
-            elif frame.dir == Direction.HORIZONTAL:
-                self._render(frame.lc, renderer)
-                self._render(frame.rc, renderer)
-            else:
-                print("bad state render")
-        else:
-            rect = sdl2.SDL_Rect(frame.x, frame.y, frame.w, frame.h)
-            if frame.active is True:
-                renderer.draw_rect(rect, color=self.theme.active_border)  # pyright: ignore[reportUnknownMemberType]
-            else:
-                renderer.draw_rect(rect, color=self.theme.border)  # pyright: ignore[reportUnknownMemberType]
-
     def geometry(self, x: int, y: int, w: int, h: int, frame: LFrame | None = None):
         if frame is None:
             frame = self.root_frame
-        self._geometry(x, y, w, h, frame)
+        def _geometry(x: int, y: int, w: int, h: int, frame: LFrame | None = None, level: int = 0):
+            if frame is None:
+                return
+            if frame.active is True:
+                b = "*"
+            else:
+                b = " "
+            print(f"frame_geometry: {" "*level}[{x},{y}]->{w}x{h} {b} ", end="")
+            if frame.rc is not None or frame.lc is not None:
+                print("->")
+                if frame.dir == Direction.VERTICAL:
+                    nw: int = w
+                    nh_l = int(h * frame.ratio)
+                    nh_r = int(h * (1 - frame.ratio))
+                    nx = x
+                    ny_l = y
+                    ny_r = y + int(h * frame.ratio)
+                    _geometry(nx, ny_l, nw, nh_l, frame.lc, level + 1)
+                    _geometry(nx, ny_r, nw, nh_r, frame.rc, level + 1)
+                    frame.x = 0
+                    frame.y = 0
+                    frame.w = 0
+                    frame.h = 0
+                elif frame.dir == Direction.HORIZONTAL:
+                    nw_l = int(w * frame.ratio)
+                    nw_r = int(w * (1 - frame.ratio))
+                    nx_l = x
+                    nx_r = x + int(w * frame.ratio)
+                    ny = y
+                    nh = h
+                    _geometry(nx_l, ny, nw_l, nh, frame.lc, level + 1)
+                    _geometry(nx_r, ny, nw_r, nh, frame.rc, level + 1)
+                    frame.x = 0
+                    frame.y = 0
+                    frame.w = 0
+                    frame.h = 0
+                else:
+                    print("bad state")
+            else:
+                print("<<")
+                frame.x = x
+                frame.y = y
+                frame.w = w
+                frame.h = h
+
+        _geometry(x, y, w, h, frame)
 
     def render(self, frame: LFrame | None, renderer: sdl2.ext.Renderer):
         if frame is None:
             frame = self.root_frame
-        self._render(frame, renderer)
+        def _render(frame: LFrame | None, renderer: sdl2.ext.Renderer):
+            if frame is None:
+                return
+            if frame.rc is not None or frame.lc is not None:
+                if frame.dir == Direction.VERTICAL:
+                    _render(frame.lc, renderer)
+                    _render(frame.rc, renderer)
+                elif frame.dir == Direction.HORIZONTAL:
+                    _render(frame.lc, renderer)
+                    _render(frame.rc, renderer)
+                else:
+                    print("bad state render")
+            else:
+                rect = sdl2.SDL_Rect(frame.x, frame.y, frame.w, frame.h)
+                if frame.active is True:
+                    renderer.draw_rect(rect, color=self.theme.active_border)  # pyright: ignore[reportUnknownMemberType]
+                else:
+                    renderer.draw_rect(rect, color=self.theme.border)  # pyright: ignore[reportUnknownMemberType]
+
+        _render(frame, renderer)
 
     def list(self) -> list[LFrame]:
         frames: list[LFrame] = []
@@ -220,6 +233,58 @@ class LFrames:
             if frame.active is True:
                 return frame
         return None
+
+    def split(self, dir: Direction = Direction.HORIZONTAL):
+        cur_fame = self.get_active()
+        if cur_fame is None:
+            print("no active frame to split")
+            return
+        if cur_fame.lc is not None or cur_fame.rc is not None:
+            print("cannot split an already split frame")
+            return
+        cur_fame.split(dir)
+
+    def compact_tree(self):
+        if self.root_frame is None:
+            return
+        def _replace_child(parent: LFrame, child: LFrame, new_child: LFrame):
+            if parent.lc is not None:
+                if parent.lc is child:
+                    parent.lc = new_child
+                else:
+                    _replace_child(parent.lc, child, new_child)
+            if parent.rc is not None:
+                if parent.rc is child:
+                    parent.rc = new_child
+                else:
+                    _replace_child(parent.rc, child, new_child)
+        def _compact_tree_helper(self, frame: LFrame ) -> None:
+            if frame.lc is None and frame.rc is not None:
+                if frame.parent is None:
+                    self.root_frame = frame.rc
+                else:
+                    _replace_child(self.root_frame, frame, frame.rc)
+                del frame
+            elif frame.rc is None and frame.lc is not None:
+                if frame.parent is None:
+                    self.root_frame = frame.lc
+                else:
+                    _replace_child(self.root_frame, frame, frame.lc)
+                del frame
+            else:
+                if frame.lc is not None:
+                    _compact_tree_helper(self, frame.lc)
+                if frame.rc is not None:
+                    _compact_tree_helper(self, frame.rc)
+        _compact_tree_helper(self, self.root_frame)
+
+    def close(self):
+        cur_frame = self.get_active()
+        if cur_frame is None:
+            print("no active frame to close")
+            return
+        cur_frame.close()
+        self.compact_tree()
 
 def run():
     sdl2.ext.init()
@@ -266,23 +331,16 @@ def run():
                     frames.circle_active()
                     break
                 if key_name == 'H':
-                    cur_frame: LFrame | None = frames.get_active()
-                    if cur_frame is not None:
-                        cur_frame.split(Direction.HORIZONTAL)
-                        frames.geometry(0, 0, ww, wh)
+                    frames.split(Direction.HORIZONTAL)
+                    frames.geometry(0, 0, ww, wh)
                     break
                 if key_name == 'V':
-                    cur_frame = frames.get_active()
-                    if cur_frame is not None:
-                        cur_frame.split(Direction.VERTICAL)
+                    frames.split(Direction.VERTICAL)
                     frames.geometry(0, 0, ww, wh)
                     break
                 if key_name == 'C':
-                    cur_frame = frames.get_active()
-                    if cur_frame is not None:
-                        cur_frame.close()
-                        del cur_frame
-                        frames.geometry(0, 0, ww, wh)
+                    frames.close()
+                    frames.geometry(0, 0, ww, wh)
                     break
 
                 else:
