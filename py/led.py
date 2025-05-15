@@ -149,6 +149,32 @@ class Frames:
             self.active_id = fr.c_lu
         return True
 
+    def size(self, id:int=0, delta:float=0.0):
+        if id==0:
+            id = self.active_id
+        if id == self.root_id:
+            return
+        if delta == 0.0:
+            return
+        p_idx = self.parent_idx(id)
+        if p_idx is None:
+            return
+        p_fr = self.frames[p_idx]
+        if p_fr.c_lu == id:
+            if delta > 0:
+                if p_fr.ratio + delta < 0.8:
+                    p_fr.ratio += delta
+            else:
+                if p_fr.ratio + delta > 0.2:
+                    p_fr.ratio += delta
+        elif p_fr.c_rd == id:
+            if delta > 0:
+                if p_fr.ratio - delta > 0.2:
+                    p_fr.ratio -= delta
+            else:
+                if p_fr.ratio - delta < 0.8:
+                    p_fr.ratio -= delta
+
     def geometry(self, x: int, y: int, wx:int, hy:int):
         print("-------------")
         def _geometry(id: int, x: int, y:int, wx:int, hy: int, level:int):
@@ -278,6 +304,14 @@ def run():
                     _ = frames.split(direction=Direction.VERTICAL)
                     frames.geometry(0,0,wx, hy)
                     break
+                if key_name == '=':
+                    frames.size(delta=0.02)
+                    frames.geometry(0,0,wx, hy)
+                    break
+                if key_name == '-':
+                    frames.size(delta= -0.02)
+                    frames.geometry(0,0,wx, hy)
+                    break 
                 if key_name == 'C':
                     _ = frames.delete()
                     frames.geometry(0,0,wx, hy)
