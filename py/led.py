@@ -21,11 +21,87 @@ class ColorTheme:
 default_color_theme = ColorTheme((0, 50, 0, 255), (255, 255, 255, 255), (0,0,255,255), (255,0,0,255), (255,255,0,255))
 
 Direction = enum.Enum('Direction', 'NONE HORIZONTAL VERTICAL')
+ContentType = enum.Enum('ContentType', 'NONE CELLARRAY TEXT SCHMEME PYTHON')
+
+class ContentCellArray:  # pyright: ignore[reportRedeclaration]
+    pass
+
+class ContentCellArray:
+    def __init__(self, contents: list[str | ContentCellArray], direction: Direction, content_type: ContentType):
+        self.c_lu: int = 0
+        self.c_rd: int = 0
+        self.direction: Direction = direction
+        self.c_type: ContentType = content_type
+        self.content: list[str | ContentCellArray] = contents
+        self.wx: int = 0
+        self.hy: int = 0
 
 class Content:
-    def __init__(self, name: str):
-        self.name: str = name
-        self.data: dict[str, str] = {}
+    def __init__(self):
+        self.log: logging.Logger = logging.getLogger("Content")
+        self.cell_arrays: dict[str, ContentCellArray] = {}
+
+    def _tokenize_text(self, text:str) -> ContentCellArray:
+        arrays: ContentCellArray = ContentCellArray([], Direction.VERTICAL, ContentType.CELLARRAY)
+        lines = text.splitlines()
+        text_separators = [" ", ",", ".", ";", ":", "(", ")", "{", "}", "[", "]", "<", ">", "|", "/", "\\", "\t"]
+        for line in lines:
+            tok = ""
+            current_array: ContentCellArray = ContentCellArray([], Direction.HORIZONTAL, ContentType.TEXT)
+            for char in line:
+                if char in text_separators:
+                    if tok:
+                        current_array.content.append(tok)
+                        tok = ""
+                else:
+                    tok += char
+            if tok:
+                current_array.content.append(tok)
+            arrays.content.append(current_array)
+        return arrays
+
+    def get_file_type(self, filename: str) -> ContentType:
+        known_extensions = ['.txt', '.scm', '.py']
+        if not any(filename.endswith(ext) for ext in known_extensions):
+            self.log.error(f"Unknown file type: {filename}")
+            return ContentType.NONE
+        else:
+            if filename.endswith('.txt'):
+                return ContentType.TEXT
+            elif filename.endswith('.scm'):
+                return ContentType.SCHMEME
+            elif filename.endswith('.py'):
+                return ContentType.PYTHON
+            else:
+                self.log.error(f"Unknown file type: {filename}")
+                return ContentType.NONE
+
+    def tokenize(self, text:str, content_type:ContentType) -> ContentCellArray:
+        if content_type == ContentType.TEXT:
+            return self._tokenize_text(text)
+        elif content_type == ContentType.SCHMEME:
+            # Placeholder for actual SchMeme tokenization
+            self.log.warning("SchMeme tokenization not implemented, using text tokenizer.")
+            return self._tokenize_text(text)
+        elif content_type == ContentType.PYTHON:
+            # Placeholder for actual Python tokenization
+            self.log.warning("Python tokenization not implemented, using text tokenizer.")
+            return self._tokenize_text(text)
+        else:
+            self.log.error(f"Unknown content type: {content_type}")
+            return ContentCellArray([], Direction.VERTICAL, ContentType.NONE)
+
+    def load_text_file(self, filename: str):
+        try:
+            with open(filename, 'r') as file:
+                lines = file.read()
+            content_type = self.get_file_type(filename)
+            self.cell_arrays[filename] = self.tokenize(lines, content_type)
+
+        except FileNotFoundError:
+            self.log.error(f"File {filename} not found.")
+        except Exception as e:
+            self.log.error(f"An error occurred: {e}")
 
 class Frame:
     def __init__(self, id:int):
@@ -38,6 +114,7 @@ class Frame:
         self.y:int = 0
         self.wx:int = 0
         self.hy:int = 0
+
 class Frames:
     def __init__(self, theme:ColorTheme = default_color_theme):
         self.log: logging.Logger = logging.getLogger("Frames")
