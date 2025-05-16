@@ -21,9 +21,6 @@ class ColorTheme:
 default_color_theme = ColorTheme((0, 50, 0, 255), (255, 255, 255, 255), (0,0,255,255), (255,0,0,255), (255,255,0,255))
 
 Direction = enum.Enum('Direction', 'NONE HORIZONTAL VERTICAL')
-# forward declaration of LFrame
-# class LFrame:
-#     pass
 
 class Content:
     def __init__(self, name: str):
@@ -194,7 +191,6 @@ class Frames:
             fr.wx = wx
             fr.hy = hy
             if fr.c_lu != 0 and fr.c_rd != 0:
-                print("->")
                 if fr.direction == Direction.HORIZONTAL:
                     _geometry(fr.c_lu, fr.x, fr.y, int(fr.wx * fr.ratio), fr.hy, level+1 )
                     _geometry(fr.c_rd, fr.x+int(fr.wx*fr.ratio), fr.y, int(fr.wx * (1-fr.ratio)), fr.hy, level+1 )
@@ -250,23 +246,6 @@ class Frames:
         else:
             self.active_id = wfr[0].id
  
-    def render(self, renderer: sdl2.ext.Renderer):
-        def _render(id:int):
-            idx: int | None = self.idx(id)
-            if idx is None:
-                return
-            frame = self.frames[idx]
-            rect = sdl2.SDL_Rect(frame.x, frame.y, frame.wx, frame.hy)
-            if frame.id == self.active_id:
-                renderer.draw_rect(rect, color=self.theme.active_border)  # pyright: ignore[reportUnknownMemberType]
-            else:
-                renderer.draw_rect(rect, color=self.theme.border)  # pyright: ignore[reportUnknownMemberType]
-            if frame.c_lu!=0 and frame.c_rd!=0:
-                _render(frame.c_lu)
-                _render(frame.c_rd)
-
-        _render(self.root_id)
-
 class FrameRenderer:
     def __init__(self, w:int, h:int, renderer: sdl2.ext.Renderer, font_path:str, theme:ColorTheme=default_color_theme):
         self.log: logging.Logger = logging.getLogger("FrameRenderer")
@@ -277,10 +256,10 @@ class FrameRenderer:
         sdl2.SDL_GetRendererOutputSize(self.renderer.sdlrenderer, rw, rh);  # pyright: ignore[reportUnknownMemberType]
         if rw.value != w:
             widthScale = rw.value / w
-            heightScale = rh.value / w
+            heightScale = rh.value / h
 
             if widthScale != heightScale:
-                self.log.warning("WARNING: width scale != height scale")
+                self.log.warning(f"WARNING: width scale {widthScale} != height scale {heightScale}")
             else:
                 self.log.info(f"Scale: {widthScale}")
             # sdl2.SDL_RenderSetScale(self.renderer.sdlrenderer, widthScale, heightScale);
@@ -318,6 +297,23 @@ class FrameRenderer:
         sdl2.SDL_DestroyTexture(texture)  # pyright: ignore[reportUnknownMemberType]
         return rect
 
+    def render(self, frames:Frames):
+        def _render(id:int, frames: Frames):
+            idx: int | None = frames.idx(id)
+            if idx is None:
+                return
+            frame = frames.frames[idx]
+            rect = sdl2.SDL_Rect(frame.x, frame.y, frame.wx, frame.hy)
+            if frame.id == frames.active_id:
+                self.renderer.draw_rect(rect, color=self.theme.active_border)  # pyright: ignore[reportUnknownMemberType]
+            else:
+                self.renderer.draw_rect(rect, color=self.theme.border)  # pyright: ignore[reportUnknownMemberType]
+            if frame.c_lu!=0 and frame.c_rd!=0:
+                _render(frame.c_lu, frames)
+                _render(frame.c_rd, frames)
+
+        _render(frames.root_id, frames)
+
 
 def run():
     # get path to script:
@@ -326,12 +322,13 @@ def run():
     font_path = os.path.join(script_path, "../Resources/IosevkaNerdFontMono-Regular.ttf")
 
     sdl2.ext.init()
+    sdl2.sdlttf.TTF_Init()
 
     window = sdl2.ext.Window("Resizable Window", size=(800, 600), flags=(sdl2.SDL_WINDOW_RESIZABLE | sdl2.SDL_WINDOW_ALLOW_HIGHDPI |  sdl2.SDL_RENDERER_ACCELERATED))
     window.show()
     renderer = sdl2.ext.Renderer(window, flags=sdl2.SDL_RENDERER_ACCELERATED)
 
-    _frame_renderer = FrameRenderer(800, 600, renderer, font_path)
+    frame_renderer = FrameRenderer(800, 600, renderer, font_path)
 
     frames = Frames()
     frames.geometry(0, 0, 800, 600)
@@ -403,7 +400,7 @@ def run():
                 print(f"Text {text_char}, type: {text_type}")
 
         renderer.clear((50, 50, 50))  # pyright: ignore[reportUnknownMemberType]
-        frames.render(renderer)
+        frame_renderer.render(frames)
         renderer.present()
         sdl2.SDL_Delay(10)  # pyright: ignore[reportUnknownMemberType]
 
