@@ -43,6 +43,7 @@ class Frame:
         self.hy:int = 0
 class Frames:
     def __init__(self, theme:ColorTheme = default_color_theme):
+        self.log: logging.Logger = logging.getLogger("Frames")
         self.fr_id:int = 0
         self.frames: list[Frame] = []
         self.root_id:int = self.create()
@@ -88,7 +89,7 @@ class Frames:
             
         p_idx = self.parent_idx(id)
         if p_idx is None:
-            print("Illegal state in delete (1)")
+            self.log.error("Illegal state in delete (1)")
             return False
 
         p_fr = self.frames[p_idx]
@@ -98,7 +99,7 @@ class Frames:
             elif p_fr.c_rd == id:
                 self.root_id = p_fr.c_lu
             else:
-                print("Illegal state in delete (2)")
+                self.log.error("Illegal state in delete (2)")
                 return False
             self.frames.remove(p_fr)
             self.frames.remove(fr)
@@ -108,7 +109,7 @@ class Frames:
         else:
             pp_idx = self.parent_idx(p_fr.id)
             if pp_idx is None:
-                print("Illegal state in delete (3)")
+                self.log.error("Illegal state in delete (3)")
                 return False
             pp_fr = self.frames[pp_idx]
             if p_fr.c_lu == id:
@@ -117,7 +118,7 @@ class Frames:
                 elif pp_fr.c_rd == p_fr.id:
                     pp_fr.c_rd = p_fr.c_rd
                 else:
-                    print("Illegal state in delete (4)")
+                    self.log.error("Illegal state in delete (4)")
                     return False
                 self.frames.remove(p_fr)
                 self.frames.remove(fr)
@@ -127,7 +128,7 @@ class Frames:
                 elif pp_fr.c_rd == p_fr.id:
                     pp_fr.c_rd = p_fr.c_lu
                 else:
-                    print("Illegal state in delete (5)")
+                    self.log.error("Illegal state in delete (5)")
                     return False
                 self.frames.remove(p_fr)
                 self.frames.remove(fr)
@@ -182,7 +183,6 @@ class Frames:
                     p_fr.ratio -= delta
 
     def geometry(self, x: int, y: int, wx:int, hy:int):
-        print("-------------")
         def _geometry(id: int, x: int, y:int, wx:int, hy: int, level:int):
             f_idx = self.idx(id)
             if f_idx is None:
@@ -193,9 +193,6 @@ class Frames:
             fr.y = y
             fr.wx = wx
             fr.hy = hy
-            print(f"{" "*level} id={fr.id} ratio={fr.ratio}, [{x},{y}] {wx}x{hy} ", end="")
-            if fr.id == self.active_id:
-                print("* ", end="")
             if fr.c_lu != 0 and fr.c_rd != 0:
                 print("->")
                 if fr.direction == Direction.HORIZONTAL:
@@ -206,11 +203,32 @@ class Frames:
                     _geometry(fr.c_rd, fr.x, fr.y+int(fr.hy*fr.ratio), fr.wx, int(fr.hy*(1-fr.ratio)), level+1)
             else:
                 if fr.c_lu !=0 or fr.c_rd !=0:
+                    self.log.error("Illegal state: incomplete sub-tree-node in geometry!")
+                    return
+
+        _geometry(self.root_id, x, y, wx, hy, 0)
+
+    def display_geometry(self):
+        def _display_geometry(id:int, level:int):
+            f_idx = self.idx(id)
+            if f_idx is None:
+                print("Internal error (1) in geometry")
+                return
+            fr: Frame = self.frames[f_idx]
+            print(f"{" "*level} id={fr.id} ratio={fr.ratio}, [{fr.x},{fr.y}] {fr.wx}x{fr.hy} ", end="")
+            if fr.id == self.active_id:
+                print("* ", end="")
+            if fr.c_lu != 0 and fr.c_rd != 0:
+                print("->")
+                _display_geometry(fr.c_lu, level+1)
+                _display_geometry(fr.c_rd, level+1)
+            else:
+                if fr.c_lu !=0 or fr.c_rd !=0:
                     print("Illegal state: incomplete sub-tree-node!")
                     return
                 print("[w]")
 
-        _geometry(self.root_id, x, y, wx, hy, 0)
+        _display_geometry(self.root_id, 0)
 
     def win_frames(self) -> tuple[list[Frame], int]:
         wfr: list[Frame] = []
