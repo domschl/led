@@ -268,12 +268,13 @@ class Frames:
         _render(self.root_id)
 
 class FrameRenderer:
-    def __init__(self, w:int, h:int, font_path:str, theme:ColorTheme=default_color_theme):
-        self.log = logging.getLogger("FrameRenderer")
+    def __init__(self, w:int, h:int, renderer: sdl2.ext.Renderer, font_path:str, theme:ColorTheme=default_color_theme):
+        self.log: logging.Logger = logging.getLogger("FrameRenderer")
         self.theme: ColorTheme = theme
+        self.renderer: sdl2.ext.Renderer = renderer
         rw: ctypes.c_int = ctypes.c_int(0)
         rh: ctypes.c_int = ctypes.c_int(0)
-        sdl2.SDL_GetRendererOutputSize(self.renderer.sdlrenderer, rw, rh);  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        sdl2.SDL_GetRendererOutputSize(self.renderer.sdlrenderer, rw, rh);  # pyright: ignore[reportUnknownMemberType]
         if rw.value != w:
             widthScale = rw.value / w
             heightScale = rh.value / w
@@ -310,10 +311,10 @@ class FrameRenderer:
 
         # Surface = sdl2.sdlttf.TTF_RenderUTF8_Solid(self.font, text.encode(), color)
         surface = sdl2.sdlttf.TTF_RenderUTF8_LCD(self.font, text.encode(), color_fg, color_bg)  # pyright:ignore[reportUnknownMemberType, reportUnknownVariableType]
-        texture = sdl2.SDL_CreateTextureFromSurface(self.renderer.sdlrenderer, surface)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAttributeAccessIssue]
+        texture = sdl2.SDL_CreateTextureFromSurface(self.renderer.sdlrenderer, surface)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
         rect = sdl2.SDL_Rect(x, y, surface.contents.w // self.font_mag, surface.contents.h // self.font_mag)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         sdl2.SDL_FreeSurface(surface)  # pyright: ignore[reportUnknownMemberType]
-        sdl2.SDL_RenderCopy(self.renderer.sdlrenderer, texture, None, rect)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        sdl2.SDL_RenderCopy(self.renderer.sdlrenderer, texture, None, rect)  # pyright: ignore[reportUnknownMemberType]
         sdl2.SDL_DestroyTexture(texture)  # pyright: ignore[reportUnknownMemberType]
         return rect
 
@@ -330,7 +331,7 @@ def run():
     window.show()
     renderer = sdl2.ext.Renderer(window, flags=sdl2.SDL_RENDERER_ACCELERATED)
 
-    frame_renderer = FrameRenderer(800, 600, font_path)
+    _frame_renderer = FrameRenderer(800, 600, renderer, font_path)
 
     frames = Frames()
     frames.geometry(0, 0, 800, 600)
