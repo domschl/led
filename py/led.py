@@ -1,15 +1,24 @@
+import os
+import logging
 import enum
-import sdl2  # pyright: ignore[reportMissingTypeStubs]
-import sdl2.ext  # pyright: ignore[reportMissingTypeStubs]
+import ctypes
+
 from dataclasses import dataclass
 from typing import cast
 
+import sdl2  # pyright: ignore[reportMissingTypeStubs]
+import sdl2.ext  # pyright: ignore[reportMissingTypeStubs]
+import sdl2.sdlttf  # pyright: ignore[reportMissingTypeStubs]
+
 @dataclass
 class ColorTheme:
-    background: tuple[int, int, int]
-    foreground: tuple[int, int, int]
-    border: tuple[int, int, int]
-    active_border: tuple[int, int, int]
+    background: tuple[int, int, int, int]
+    foreground: tuple[int, int, int, int]
+    border: tuple[int, int, int, int]
+    active_border: tuple[int, int, int, int]
+    cursor: tuple[int, int, int, int]
+
+default_color_theme = ColorTheme((0, 50, 0, 255), (255, 255, 255, 255), (0,0,255,255), (255,0,0,255), (255,255,0,255))
 
 Direction = enum.Enum('Direction', 'NONE HORIZONTAL VERTICAL')
 # forward declaration of LFrame
@@ -33,15 +42,12 @@ class Frame:
         self.wx:int = 0
         self.hy:int = 0
 class Frames:
-    def __init__(self, theme:ColorTheme|None = None):
+    def __init__(self, theme:ColorTheme = default_color_theme):
         self.fr_id:int = 0
         self.frames: list[Frame] = []
         self.root_id:int = self.create()
         self.active_id:int = self.root_id
-        if theme is None:
-            self.theme: ColorTheme = ColorTheme((0, 50, 0), (255, 255, 255), (0,0,255), (255,0,0))
-        else:
-            self.theme = theme
+        self.theme: ColorTheme = theme
 
     def get_id(self) -> int:
         self.fr_id += 1
@@ -243,17 +249,70 @@ class Frames:
 
         _render(self.root_id)
 
+class FrameRenderer:
+    def __init__(self, w:int, h:int, font_path:str, theme:ColorTheme=default_color_theme):
+        self.log = logging.getLogger("FrameRenderer")
+        self.theme: ColorTheme = theme
+        rw: ctypes.c_int = ctypes.c_int(0)
+        rh: ctypes.c_int = ctypes.c_int(0)
+        sdl2.SDL_GetRendererOutputSize(self.renderer.sdlrenderer, rw, rh);  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        if rw.value != w:
+            widthScale = rw.value / w
+            heightScale = rh.value / w
 
+            if widthScale != heightScale:
+                self.log.warning("WARNING: width scale != height scale")
+            else:
+                self.log.info(f"Scale: {widthScale}")
+            # sdl2.SDL_RenderSetScale(self.renderer.sdlrenderer, widthScale, heightScale);
+        if os.path.exists(font_path) is False:
+            self.log.error(f"Font {font_path} does not exist")
+        # sdl2.ext.RenderSetScale(self.renderer,2,2)
+        self.font_mag:int = 2
+        self.dpi:int = 144
+        font_size = 8 * self.font_mag
+        self.font: sdl2.sdlttf.TTF_Font = sdl2.sdlttf.TTF_OpenFontDPI(font_path.encode('utf-8'), font_size, self.dpi, self.dpi)  # pyright: ignore[reportUnknownMemberType] # , reportUnannotatedClassAttribute]
+        sdl2.sdlttf.TTF_SetFontHinting(self.font, sdl2.sdlttf.TTF_HINTING_LIGHT_SUBPIXEL)  # pyright: ignore[reportUnknownMemberType]
+        rect = self.render_text("a", 0, 0)
+        if rect is not None:
+            self.char_width: int = rect.w
+            self.char_height: int = rect.h
+            self.log.info(f"Char-sizes: {self.char_width}, {self.char_height}")
+        else:
+            self.log.error("Cannot determine character dimensions!")
+        self.line_spacing_extra:int = 0
+        script = "Tibt".encode('utf-8')
+        sdl2.sdlttf.TTF_SetFontScriptName(self.font, script)  # pyright:ignore[reportUnknownMemberType]
 
+    def render_text(self, text:str, x:int, y:int) -> sdl2.SDL_Rect | None:
+        if text == "":
+            return
+        color_fg = sdl2.SDL_Color(self.theme.foreground[0], self.theme.foreground[1], self.theme.foreground[2], self.theme.foreground[3])
+        color_bg = sdl2.SDL_Color(self.theme.background[0], self.theme.background[1], self.theme.background[2], self.theme.background[3])
 
-        
+        # Surface = sdl2.sdlttf.TTF_RenderUTF8_Solid(self.font, text.encode(), color)
+        surface = sdl2.sdlttf.TTF_RenderUTF8_LCD(self.font, text.encode(), color_fg, color_bg)  # pyright:ignore[reportUnknownMemberType, reportUnknownVariableType]
+        texture = sdl2.SDL_CreateTextureFromSurface(self.renderer.sdlrenderer, surface)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAttributeAccessIssue]
+        rect = sdl2.SDL_Rect(x, y, surface.contents.w // self.font_mag, surface.contents.h // self.font_mag)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        sdl2.SDL_FreeSurface(surface)  # pyright: ignore[reportUnknownMemberType]
+        sdl2.SDL_RenderCopy(self.renderer.sdlrenderer, texture, None, rect)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        sdl2.SDL_DestroyTexture(texture)  # pyright: ignore[reportUnknownMemberType]
+        return rect
+
 
 def run():
+    # get path to script:
+    script_path:str = os.path.dirname(os.path.abspath(__file__))
+    # get path to font at ../Resources/IosevkaNerdFontMono-Regular.ttf
+    font_path = os.path.join(script_path, "../Resources/IosevkaNerdFontMono-Regular.ttf")
+
     sdl2.ext.init()
 
     window = sdl2.ext.Window("Resizable Window", size=(800, 600), flags=(sdl2.SDL_WINDOW_RESIZABLE | sdl2.SDL_WINDOW_ALLOW_HIGHDPI |  sdl2.SDL_RENDERER_ACCELERATED))
     window.show()
     renderer = sdl2.ext.Renderer(window, flags=sdl2.SDL_RENDERER_ACCELERATED)
+
+    frame_renderer = FrameRenderer(800, 600, font_path)
 
     frames = Frames()
     frames.geometry(0, 0, 800, 600)
@@ -268,8 +327,8 @@ def run():
 
     running = True
     while running:
-        events = sdl2.ext.get_events()
-        for event in events:
+        events = sdl2.ext.get_events()  # pyright: ignore[reportUnknownVariableType]
+        for event in events:  # pyright: ignore[reportUnknownVariableType]
             if event.type == sdl2.SDL_QUIT:
                 running = False
                 break
@@ -319,6 +378,10 @@ def run():
 
                 else:
                     print(f"Key pressed: {key_name}")
+            if event.type == sdl2.SDL_TEXTINPUT:  # pyright: ignore[reportUnknownMemberType]
+                text_char:str = cast(str, event.text.text.decode('utf-8'))  # pyright: ignore[reportUnknownMemberType]
+                text_type:int = cast(int, event.text.type)  # pyright: ignore[reportUnknownMemberType]
+                print(f"Text {text_char}, type: {text_type}")
 
         renderer.clear((50, 50, 50))  # pyright: ignore[reportUnknownMemberType]
         frames.render(renderer)
