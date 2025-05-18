@@ -104,7 +104,7 @@ class Content:
             self.log.error(f"An error occurred: {e}")
 
 class Frame:
-    def __init__(self, id:int):
+    def __init__(self, id:int, content: Content | None = None):
         self.c_lu: int = 0
         self.c_rd: int = 0
         self.direction: Direction = Direction.NONE
@@ -114,6 +114,7 @@ class Frame:
         self.y:int = 0
         self.wx:int = 0
         self.hy:int = 0
+        self.content: Content | None = content
 
 class Frames:
     def __init__(self, theme:ColorTheme = default_color_theme):
@@ -128,9 +129,9 @@ class Frames:
         self.fr_id += 1
         return self.fr_id
 
-    def create(self) -> int:
+    def create(self, content: Content | None = None) -> int:
         id:int = self.get_id()
-        fr:Frame = Frame(id)
+        fr:Frame = Frame(id, content)
         self.frames.append(fr)
         return id
 
@@ -224,8 +225,9 @@ class Frames:
             return False
         fr.direction = direction
         fr.ratio = 0.5
-        fr.c_lu = self.create()
-        fr.c_rd = self.create()
+        fr.c_lu = self.create(fr.content)
+        fr.c_rd = self.create(content=fr.content)
+        fr.content = None  # Clear content as it is now split into two frames
         if fr.id == self.active_id:
             self.active_id = fr.c_lu
         return True
