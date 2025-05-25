@@ -633,113 +633,144 @@ class ReplEditor():
         pad_id = self.pad_create(buffer, height, width, offset_y, offset_x, left_border, bottom_border, color_theme)
         # self.repl.cursor_show()
         self.editor_esc = False
-        pad = self.pad_get(pad_id)
-        print("Starting editor loop")
-        while self.editor_esc is False and pad is not None:
-            # try:
-                # tinp = self.input_queue.get(timeout=0.02)
-            # except queue.Empty:
-            #      tinp = None
-            #    # self.repl.event_loop_tick()
-            #     self.pad_display(pad_id)
-            #     continue
-            msg = ""
-            cmd = ""
-            if debug is True:
-                hex_msg = f"{bytearray(msg, encoding='utf-8')}"
-                print(f"[{cmd},{msg},{hex_msg}]")
-                # self.input_queue.task_done()
-            else:
-                if cmd == "bsp":
-                    if pad.cur_x + pad.buf_x > 0:
-                        _ = self.pad_move(pad_id, dx = -1)
-                        pad.buffer[pad.buf_y+pad.cur_y] = pad.buffer[pad.buf_y+pad.cur_y][:pad.buf_x+pad.cur_x] + pad.buffer[pad.buf_y+pad.cur_y][pad.buf_x+pad.cur_x+1:]
-                    else:
-                        if pad.cur_y + pad.buf_y > 0:
-                            cur_idx = pad.cur_y+pad.buf_y
-                            cur_line = pad.buffer[cur_idx]
-                            _ = self.pad_move(pad_id, dy = -1)
-                            _ = self.pad_move(pad_id, x = -1)
-                            cur_idx_new = pad.cur_y+pad.buf_y
-                            pad.buffer[cur_idx_new] += cur_line
-                            del pad.buffer[cur_idx]
-                    self.pad_display(pad_id)
-                elif cmd == 'exit':
-                    self.editor_esc = True
-                elif cmd == "nl":
-                    cur_ind = pad.cur_y+pad.buf_y
-                    cur_pos = pad.cur_x + pad.buf_x
-                    if cur_ind < len(pad.buffer):
-                        cur_line: str = pad.buffer[cur_ind]
-                    else:
-                        print("error cur_line invl")
-                        cur_line = ""
-                        exit(1)
-                    left = cur_line[:cur_pos]
-                    right = cur_line[cur_pos:]
-                    pad.buffer[cur_ind]=left
-                    if cur_ind == len(pad.buffer) -1:
-                        pad.buffer.append(right)
-                    else:
-                        pad.buffer.insert(cur_ind+1, right)
-                    _ = self.pad_move(pad_id, dy=1, x=0)
-                    self.pad_display(pad_id)
-                elif cmd == "up":
-                    _ = self.pad_move(pad_id, dy = -1)
-                    self.pad_display(pad_id)
-                elif cmd == "down":
-                    _ = self.pad_move(pad_id, dy = 1)
-                    self.pad_display(pad_id)
-                elif cmd == "left":
-                    _ = self.pad_move(pad_id, dx = -1)
-                    self.pad_display(pad_id)
-                elif cmd == "right":
-                    _ = self.pad_move(pad_id, dx = 1)
-                    self.pad_display(pad_id)
-                elif cmd == "home":
-                    _ = self.pad_move(pad_id, x=0)
-                    self.pad_display(pad_id)
-                elif cmd == "end":
-                    _ = self.pad_move(pad_id, x= -1)
-                    self.pad_display(pad_id)
-                elif cmd == "PgUp":
-                    _ = self.pad_move(pad_id, dy = -pad.height)
-                    self.pad_display(pad_id)
-                elif cmd == "PgDown":
-                    _ = self.pad_move(pad_id, dy = pad.height)
-                    self.pad_display(pad_id)
-                elif cmd == "Start":
-                    _ = self.pad_move(pad_id, x=0, y=0)
-                    self.pad_display(pad_id)
-                elif cmd == "End":
-                    llen = len(pad.buffer) - 1
-                    y = llen + pad.height
-                    if y > llen:
-                        y = llen
-                    _ = self.pad_move(pad_id, y=y)
-                    _ = self.pad_move(pad_id, x= -1)
-                    self.pad_display(pad_id)
-                elif cmd == "err":
-                    print()
-                    print(msg)
-                    exit(1)
-                elif cmd == "char":
-                    cur_ind = pad.cur_y+pad.buf_y
-                    cur_line = pad.buffer[cur_ind]
-                    if ord(msg[0]) >= 32:
-                        left = cur_line[:pad.buf_x+pad.cur_x]
-                        right = cur_line[pad.buf_x+pad.cur_x:]
-                        pad.buffer[cur_ind] = left + msg + right
-                        _ = self.pad_move(pad_id, dx = 1)
-                    self.pad_display(pad_id)
-                else:
-                    print(f"Bad state: cmd={cmd}, msg={msg}")
-                    exit(1)
-                # self.input_queue.task_done()
-                
-        self.pad_display(pad_id, False)
-        print("Exit edit-loop")
         return pad_id
+
+    def editor_event(self, pad_id: int, cmd: str, msg: str, debug: bool = False):
+        if debug is True:
+            hex_msg = f"{bytearray(msg, encoding='utf-8')}"
+            print(f"[{cmd},{msg},{hex_msg}]")
+            # self.input_queue.task_done()
+        else:
+            pad = self.pad_get(pad_id)
+            if pad is None:
+                print(f"Pad with id {pad_id} not found")
+                return
+            if cmd == "bsp":
+                if pad.cur_x + pad.buf_x > 0:
+                    _ = self.pad_move(pad_id, dx = -1)
+                    pad.buffer[pad.buf_y+pad.cur_y] = pad.buffer[pad.buf_y+pad.cur_y][:pad.buf_x+pad.cur_x] + pad.buffer[pad.buf_y+pad.cur_y][pad.buf_x+pad.cur_x+1:]
+                else:
+                    if pad.cur_y + pad.buf_y > 0:
+                        cur_idx = pad.cur_y+pad.buf_y
+                        cur_line = pad.buffer[cur_idx]
+                        _ = self.pad_move(pad_id, dy = -1)
+                        _ = self.pad_move(pad_id, x = -1)
+                        cur_idx_new = pad.cur_y+pad.buf_y
+                        pad.buffer[cur_idx_new] += cur_line
+                        del pad.buffer[cur_idx]
+                self.pad_display(pad_id)
+            elif cmd == 'exit':
+                self.editor_esc = True
+            elif cmd == "nl":
+                cur_ind = pad.cur_y+pad.buf_y
+                cur_pos = pad.cur_x + pad.buf_x
+                if cur_ind < len(pad.buffer):
+                    cur_line: str = pad.buffer[cur_ind]
+                else:
+                    print("error cur_line invl")
+                    cur_line = ""
+                    exit(1)
+                left = cur_line[:cur_pos]
+                right = cur_line[cur_pos:]
+                pad.buffer[cur_ind]=left
+                if cur_ind == len(pad.buffer) -1:
+                    pad.buffer.append(right)
+                else:
+                    pad.buffer.insert(cur_ind+1, right)
+                _ = self.pad_move(pad_id, dy=1, x=0)
+                self.pad_display(pad_id)
+            elif cmd == "up":
+                _ = self.pad_move(pad_id, dy = -1)
+                self.pad_display(pad_id)
+            elif cmd == "down":
+                _ = self.pad_move(pad_id, dy = 1)
+                self.pad_display(pad_id)
+            elif cmd == "left":
+                _ = self.pad_move(pad_id, dx = -1)
+                self.pad_display(pad_id)
+            elif cmd == "right":
+                _ = self.pad_move(pad_id, dx = 1)
+                self.pad_display(pad_id)
+            elif cmd == "home":
+                _ = self.pad_move(pad_id, x=0)
+                self.pad_display(pad_id)
+            elif cmd == "end":
+                _ = self.pad_move(pad_id, x= -1)
+                self.pad_display(pad_id)
+            elif cmd == "PgUp":
+                _ = self.pad_move(pad_id, dy = -pad.height)
+                self.pad_display(pad_id)
+            elif cmd == "PgDown":
+                _ = self.pad_move(pad_id, dy = pad.height)
+                self.pad_display(pad_id)
+            elif cmd == "Start":
+                _ = self.pad_move(pad_id, x=0, y=0)
+                self.pad_display(pad_id)
+            elif cmd == "End":
+                llen = len(pad.buffer) - 1
+                y = llen + pad.height
+                if y > llen:
+                    y = llen
+                _ = self.pad_move(pad_id, y=y)
+                _ = self.pad_move(pad_id, x= -1)
+                self.pad_display(pad_id)
+            elif cmd == "err":
+                print()
+                print(f"msg: {msg} [Illegal command in editor]")
+                return
+            elif cmd == "char":
+                cur_ind = pad.cur_y+pad.buf_y
+                cur_line = pad.buffer[cur_ind]
+                if ord(msg[0]) >= 32:
+                    left = cur_line[:pad.buf_x+pad.cur_x]
+                    right = cur_line[pad.buf_x+pad.cur_x:]
+                    pad.buffer[cur_ind] = left + msg + right
+                    _ = self.pad_move(pad_id, dx = 1)
+                self.pad_display(pad_id)
+            else:
+                print(f"Bad state: cmd={cmd}, msg={msg}")
+                return
+            # self.input_queue.task_done()
+                    
+            self.pad_display(pad_id, False)
+        return
+
+def translate_key_event(event: sdl2.SDL_Event) -> tuple[str, str]:
+    key_name = cast(str, sdl2.SDL_GetKeyName(event.key.keysym.sym).decode())  # pyright: ignore[reportUnknownMemberType, reportAny]
+    modifiers = cast(int, sdl2.SDL_GetModState())  # pyright: ignore[reportUnknownMemberType]
+    if key_name == 'Return':
+        return ('nl', '')
+    elif key_name == 'Backspace':
+        return ('bsp', '')
+    elif key_name == 'Escape':
+        return ('exit', '')
+    elif key_name == 'Up':
+        return ('up', '')
+    elif key_name == 'Down':
+        return ('down', '')
+    elif key_name == 'Left':
+        return ('left', '')
+    elif key_name == 'Right':
+        return ('right', '')
+    elif key_name == 'Home':
+        return ('home', '')
+    elif key_name == 'End':
+        return ('end', '')
+    elif key_name == 'PageUp':
+        return ('PgUp', '')
+    elif key_name == 'PageDown':
+        return ('PgDown', '')
+    elif key_name == 'Tab':
+        return ('tab', '')
+    elif key_name == 'Return' and (modifiers & sdl2.KMOD_LCTRL or modifiers & sdl2.KMOD_RCTRL):
+        return ('Start', '')
+    elif key_name == 'Return' and (modifiers & sdl2.KMOD_LSHIFT or modifiers & sdl2.KMOD_RSHIFT):
+        return ('End', '')
+    else:
+        if len(key_name) > 1:
+            return ('err', f"Unknown key: {key_name}")
+        else:
+            return ('char', key_name)
 
 def run():
     # get path to script:
